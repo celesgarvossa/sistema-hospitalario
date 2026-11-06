@@ -14,6 +14,7 @@ describe('TurnosService', () => {
       find: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
+      findOneBy: jest.fn(),
     };
 
     const module = await Test.createTestingModule({
@@ -94,41 +95,90 @@ describe('TurnosService', () => {
     expect(resultado).toEqual(turnoCreado);
   });
 
-  it('debería rechazar un turno con datos obligatorios faltantes', async () => {
-    await expect(
-      service.crear({
-        agendaId: 1,
-        pacienteId: 1,
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    it('debería rechazar un turno con datos obligatorios faltantes', async () => {
+      await expect(
+        service.crear({
+          agendaId: 1,
+          pacienteId: 1,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(repositoryMock.create).not.toHaveBeenCalled();
-    expect(repositoryMock.save).not.toHaveBeenCalled();
-  });
-
-  it('debería devolver conflicto si el horario ya está reservado', async () => {
-    repositoryMock.create.mockReturnValue({
-      agendaId: 1,
-      pacienteId: 1,
-      horaInicio: '10:00:00',
-      horaFin: '10:30:00',
-      estado: 'Programado',
-      tipo: 'NORMAL',
-      duracionReducida: false,
-      version: 1,
+      expect(repositoryMock.create).not.toHaveBeenCalled();
+      expect(repositoryMock.save).not.toHaveBeenCalled();
     });
 
-    repositoryMock.save.mockRejectedValue({
-      code: 'ER_DUP_ENTRY',
-    });
-
-    await expect(
-      service.crear({
+    it('debería devolver conflicto si el horario ya está reservado', async () => {
+      repositoryMock.create.mockReturnValue({
         agendaId: 1,
         pacienteId: 1,
         horaInicio: '10:00:00',
         horaFin: '10:30:00',
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
+        estado: 'Programado',
+        tipo: 'NORMAL',
+        duracionReducida: false,
+        version: 1,
+      });
+
+      repositoryMock.save.mockRejectedValue({
+        code: 'ER_DUP_ENTRY',
+      });
+
+      await expect(
+        service.crear({
+          agendaId: 1,
+          pacienteId: 1,
+          horaInicio: '10:00:00',
+          horaFin: '10:30:00',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('debería cambiar un turno de Programado a Confirmado', async () => {
+    const turnoProgramado = {
+      id: 1,
+      estado: 'Programado',
+    };
+
+    const turnoConfirmado = {
+      id: 1,
+      estado: 'Confirmado',
+    };
+
+    repositoryMock.findOneBy.mockResolvedValue(turnoProgramado);
+    repositoryMock.save.mockResolvedValue(turnoConfirmado);
+
+    const resultado = await service.confirmar(1);
+
+    expect(repositoryMock.findOneBy).toHaveBeenCalledWith({
+      id: 1,
+    });
+
+    expect(repositoryMock.save).toHaveBeenCalledWith({
+      id: 1,
+      estado: 'Confirmado',
+    });
+
+    expect(resultado).toEqual(turnoConfirmado);
   });
+
+    it('debería rechazar la transición de Cancelado a Atendido', async () => {
+    const turnoCancelado = {
+      id: 3,
+      estado: 'Cancelado',
+    };
+
+    repositoryMock.findOneBy.mockResolvedValue(turnoCancelado);
+
+    await expect(
+      service.atender(3),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(repositoryMock.findOneBy).toHaveBeenCalledWith({
+      id: 3,
+    });
+
+    expect(repositoryMock.save).not.toHaveBeenCalled();
+  });
+
+  
 });

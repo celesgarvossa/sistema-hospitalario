@@ -3,10 +3,12 @@ import {
   Dependencies,
   BadRequestException,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Turno } from './turno.entity';
+import { EstadoTurnoFactory } from './estados/estado-turno.factory';
 
 @Injectable()
 @Dependencies(getRepositoryToken(Turno))
@@ -53,5 +55,85 @@ export class TurnosService {
 
       throw error;
     }
+
   }
+
+  async confirmar(id) {
+    const turno = await this.turnosRepository.findOneBy({
+    id: Number(id),
+    });
+
+    if (!turno) {
+      throw new NotFoundException('Turno no encontrado');
+    }
+
+    const estadoActual = EstadoTurnoFactory.crear(turno.estado);
+
+    try {
+      turno.estado = estadoActual.confirmar();
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    return await this.turnosRepository.save(turno);
+  }
+
+    async ingresarSalaEspera(id) {
+    const turno = await this.turnosRepository.findOneBy({
+      id: Number(id),
+    });
+
+    if (!turno) {
+      throw new NotFoundException('Turno no encontrado');
+    }
+
+    const estadoActual = EstadoTurnoFactory.crear(turno.estado);
+
+    try {
+      turno.estado = estadoActual.ingresarSalaEspera();
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    return await this.turnosRepository.save(turno);
+  }
+  async atender(id) {
+    const turno = await this.turnosRepository.findOneBy({
+      id: Number(id),
+    });
+
+    if (!turno) {
+      throw new NotFoundException('Turno no encontrado');
+    }
+
+    const estadoActual = EstadoTurnoFactory.crear(turno.estado);
+
+    try {
+      turno.estado = estadoActual.atender();
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    return await this.turnosRepository.save(turno);
+    }
+
+    async cancelar(id) {
+  const turno = await this.turnosRepository.findOneBy({
+    id: Number(id),
+  });
+
+  if (!turno) {
+    throw new NotFoundException('Turno no encontrado');
+  }
+
+  const estadoActual = EstadoTurnoFactory.crear(turno.estado);
+
+  try {
+    turno.estado = estadoActual.cancelar();
+  } catch (error) {
+    throw new BadRequestException(error.message);
+  }
+
+  return await this.turnosRepository.save(turno);
+  } 
 }
