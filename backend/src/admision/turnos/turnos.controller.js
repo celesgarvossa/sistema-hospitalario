@@ -20,6 +20,12 @@ export class TurnosController {
     return this.turnosService.crear(datosTurno);
   }
 
+  @Post('entreturno')
+  @Bind(Body())
+  crearEntreturno(datosTurno) {
+    return this.turnosService.crearEntreturno(datosTurno);
+  }
+
   @Patch(':id/confirmar')
   @Bind(Param('id'), Body())
   confirmar(id) {

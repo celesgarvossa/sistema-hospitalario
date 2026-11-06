@@ -9,6 +9,7 @@ import {
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Turno } from './turno.entity';
 import { EstadoTurnoFactory } from './estados/estado-turno.factory';
+import {LessThan, MoreThan} from 'typeorm';
 
 @Injectable()
 @Dependencies(getRepositoryToken(Turno))
@@ -44,6 +45,7 @@ export class TurnosService {
       version: 1,
     });
 
+
     try {
       return await this.turnosRepository.save(turno);
     } catch (error) {
@@ -57,6 +59,78 @@ export class TurnosService {
     }
 
   }
+
+  async buscarTurnoAnterior(agendaId, horaInicio, repository = this.turnosRepository) {
+  return await repository.findOne({
+    where: {
+      agendaId: Number(agendaId),
+      horaInicio: LessThan(horaInicio),
+      horaFin: MoreThan(horaInicio),
+    },
+    order: {
+      horaInicio: 'DESC',
+    },
+  });
+  }
+
+  async crearEntreturno(datosTurno) {
+  if (
+    !datosTurno.agendaId ||
+    !datosTurno.pacienteId ||
+    !datosTurno.horaInicio ||
+    !datosTurno.horaFin
+  ) {
+    throw new BadRequestException(
+      'agendaId, pacienteId, horaInicio y horaFin son obligatorios',
+    );
+  }
+
+  try {
+    return await this.turnosRepository.manager.transaction(
+      async (manager) => {
+        const repository = manager.getRepository(Turno);
+
+        const turnoAnterior = await this.buscarTurnoAnterior(
+          datosTurno.agendaId,
+          datosTurno.horaInicio,
+          repository,
+        );
+
+        if (!turnoAnterior) {
+          throw new BadRequestException(
+            'No existe un turno anterior que pueda reducirse para crear el entreturno',
+          );
+        }
+
+        turnoAnterior.horaFin = datosTurno.horaInicio;
+        turnoAnterior.duracionReducida = true;
+
+        await repository.save(turnoAnterior);
+
+        const entreturno = repository.create({
+          agendaId: Number(datosTurno.agendaId),
+          pacienteId: Number(datosTurno.pacienteId),
+          horaInicio: datosTurno.horaInicio,
+          horaFin: datosTurno.horaFin,
+          estado: 'Programado',
+          tipo: 'ENTRETURNO',
+          duracionReducida: false,
+          version: 1,
+        });
+
+        return await repository.save(entreturno);
+      },
+    );
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      throw new ConflictException(
+        'Ese horario ya está reservado en esta agenda',
+      );
+    }
+
+    throw error;
+  }
+}
 
   async confirmar(id) {
     const turno = await this.turnosRepository.findOneBy({

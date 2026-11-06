@@ -12,9 +12,14 @@ describe('TurnosService', () => {
   beforeEach(async () => {
     repositoryMock = {
       find: jest.fn(),
+      findOneBy: jest.fn(),
+      findOne: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
-      findOneBy: jest.fn(),
+      manager:{
+        transaction: jest.fn(),
+      }
+      
     };
 
     const module = await Test.createTestingModule({
@@ -180,5 +185,111 @@ describe('TurnosService', () => {
     expect(repositoryMock.save).not.toHaveBeenCalled();
   });
 
-  
+  it('debería crear un entreturno y reducir el turno anterior', async () => {
+  const turnoAnterior = {
+    id: 10,
+    agendaId: 2,
+    pacienteId: 1,
+    horaInicio: '10:00:00',
+    horaFin: '10:30:00',
+    estado: 'Programado',
+    tipo: 'NORMAL',
+    duracionReducida: false,
+    version: 1,
+  };
+
+  const entreturnoCreado = {
+    id: 11,
+    agendaId: 2,
+    pacienteId: 1,
+    horaInicio: '10:15:00',
+    horaFin: '10:30:00',
+    estado: 'Programado',
+    tipo: 'ENTRETURNO',
+    duracionReducida: false,
+    version: 1,
+  };
+
+  const transactionRepositoryMock = {
+    findOne: jest.fn().mockResolvedValue(turnoAnterior),
+    create: jest.fn().mockReturnValue(entreturnoCreado),
+    save: jest.fn(),
+  };
+
+  transactionRepositoryMock.save
+    .mockResolvedValueOnce({
+      ...turnoAnterior,
+      horaFin: '10:15:00',
+      duracionReducida: true,
+    })
+    .mockResolvedValueOnce(entreturnoCreado);
+
+  const managerMock = {
+    getRepository: jest.fn().mockReturnValue(transactionRepositoryMock),
+  };
+
+  repositoryMock.manager.transaction.mockImplementation(
+    async (callback) => callback(managerMock),
+  );
+
+  const resultado = await service.crearEntreturno({
+    agendaId: 2,
+    pacienteId: 1,
+    horaInicio: '10:15:00',
+    horaFin: '10:30:00',
+  });
+
+  expect(transactionRepositoryMock.findOne).toHaveBeenCalled();
+
+  expect(transactionRepositoryMock.save).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: 10,
+      horaFin: '10:15:00',
+      duracionReducida: true,
+    }),
+  );
+
+  expect(transactionRepositoryMock.create).toHaveBeenCalledWith({
+    agendaId: 2,
+    pacienteId: 1,
+    horaInicio: '10:15:00',
+    horaFin: '10:30:00',
+    estado: 'Programado',
+    tipo: 'ENTRETURNO',
+    duracionReducida: false,
+    version: 1,
+  });
+
+  expect(resultado).toEqual(entreturnoCreado);
+  });
+
+  it('debería rechazar un entreturno si no existe un turno anterior válido', async () => {
+  const transactionRepositoryMock = {
+    findOne: jest.fn().mockResolvedValue(null),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+
+  const managerMock = {
+    getRepository: jest.fn().mockReturnValue(transactionRepositoryMock),
+  };
+
+  repositoryMock.manager.transaction.mockImplementation(
+    async (callback) => callback(managerMock),
+  );
+
+  await expect(
+    service.crearEntreturno({
+      agendaId: 2,
+      pacienteId: 1,
+      horaInicio: '10:15:00',
+      horaFin: '10:30:00',
+    }),
+  ).rejects.toBeInstanceOf(BadRequestException);
+
+  expect(transactionRepositoryMock.findOne).toHaveBeenCalled();
+  expect(transactionRepositoryMock.create).not.toHaveBeenCalled();
+  expect(transactionRepositoryMock.save).not.toHaveBeenCalled();
+  });
+
 });
