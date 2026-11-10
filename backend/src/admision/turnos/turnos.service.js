@@ -9,13 +9,16 @@ import {
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Turno } from './turno.entity';
 import { EstadoTurnoFactory } from './estados/estado-turno.factory';
-import {LessThan, MoreThan} from 'typeorm';
+import { LessThan, MoreThan } from 'typeorm';
+import { ListaEspera } from './lista-espera.entity';
+
 
 @Injectable()
-@Dependencies(getRepositoryToken(Turno))
+@Dependencies(getRepositoryToken(Turno), getRepositoryToken(ListaEspera))
 export class TurnosService {
-  constructor(turnosRepository) {
+  constructor(turnosRepository, listaEsperaRepository) {
     this.turnosRepository = turnosRepository;
+    this.listaEsperaRepository = listaEsperaRepository;
   }
 
   obtenerTodos() {
@@ -192,22 +195,116 @@ export class TurnosService {
     }
 
     async cancelar(id) {
-  const turno = await this.turnosRepository.findOneBy({
-    id: Number(id),
+  return await this.turnosRepository.manager.transaction(
+    async (manager) => {
+      const turnosRepository = manager.getRepository(Turno);
+      const listaRepository = manager.getRepository(ListaEspera);
+
+      const turno = await turnosRepository.findOneBy({
+        id: Number(id),
+      });
+
+      if (!turno) {
+        throw new NotFoundException('Turno no encontrado');
+      }
+
+      const estadoActual = EstadoTurnoFactory.crear(turno.estado);
+
+      try {
+        turno.estado = estadoActual.cancelar();
+      } catch (error) {
+        throw new BadRequestException(error.message);
+      }
+
+      const primeroEnEspera =
+        await this.buscarPrimeroListaEspera(
+          turno.agendaId,
+          turno.horaInicio,
+          listaRepository,
+        );
+
+      
+      if (!primeroEnEspera) {
+        return await turnosRepository.save(turno);
+      }
+
+      
+      turno.pacienteId = primeroEnEspera.pacienteId;
+      turno.estado = 'Programado';
+      turno.version = Number(turno.version) + 1;
+
+      primeroEnEspera.estado = 'PROMOVIDO';
+
+      await listaRepository.save(primeroEnEspera);
+
+      return await turnosRepository.save(turno);
+    },
+  );
+}
+
+  async agregarAListaEspera(datos) {
+  if (
+    !datos.agendaId ||
+    !datos.pacienteId ||
+    !datos.horaInicio ||
+    !datos.horaFin
+  ) {
+    throw new BadRequestException(
+      'agendaId, pacienteId, horaInicio y horaFin son obligatorios',
+    );
+  }
+
+  const registro = this.listaEsperaRepository.create({
+    agendaId: Number(datos.agendaId),
+    pacienteId: Number(datos.pacienteId),
+    horaInicio: datos.horaInicio,
+    horaFin: datos.horaFin,
+    estado: 'ESPERANDO',
   });
 
-  if (!turno) {
-    throw new NotFoundException('Turno no encontrado');
-  }
-
-  const estadoActual = EstadoTurnoFactory.crear(turno.estado);
-
   try {
-    turno.estado = estadoActual.cancelar();
+    return await this.listaEsperaRepository.save(registro);
   } catch (error) {
-    throw new BadRequestException(error.message);
+    if (error.code === 'ER_DUP_ENTRY') {
+      throw new ConflictException(
+        'El paciente ya está en la lista de espera para ese horario',
+      );
+    }
+
+    throw error;
+  }
   }
 
-  return await this.turnosRepository.save(turno);
-  } 
+  async obtenerListaEspera(agendaId, horaInicio) {
+  return await this.listaEsperaRepository.find({
+    where: {
+      agendaId: Number(agendaId),
+      horaInicio,
+      estado: 'ESPERANDO',
+    },
+    order: {
+      creadoEn: 'ASC',
+      id: 'ASC',
+    },
+  });
+  }
+
+  async buscarPrimeroListaEspera(
+  agendaId,
+  horaInicio,
+  repository = this.listaEsperaRepository,
+) {
+  return await repository.findOne({
+    where: {
+      agendaId: Number(agendaId),
+      horaInicio,
+      estado: 'ESPERANDO',
+    },
+    order: {
+      creadoEn: 'ASC',
+      id: 'ASC',
+    },
+  });
+  }
+
 }

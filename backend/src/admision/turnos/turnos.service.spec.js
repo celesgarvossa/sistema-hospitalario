@@ -4,30 +4,43 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { TurnosService } from './turnos.service';
 import { Turno } from './turno.entity';
+import { ListaEspera } from './lista-espera.entity';
 
 describe('TurnosService', () => {
   let service;
   let repositoryMock;
+  let listaEsperaRepositoryMock;
 
-  beforeEach(async () => {
+ beforeEach(async () => {
     repositoryMock = {
       find: jest.fn(),
+      findOne: jest.fn(),
       findOneBy: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      manager: {
+        transaction: jest.fn(),
+      },
+    };
+
+    listaEsperaRepositoryMock = {
+      find: jest.fn(),
       findOne: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
-      manager:{
-        transaction: jest.fn(),
-      }
-      
     };
-
+    
+  
     const module = await Test.createTestingModule({
       providers: [
         TurnosService,
         {
           provide: getRepositoryToken(Turno),
           useValue: repositoryMock,
+        },
+        {
+          provide: getRepositoryToken(ListaEspera),
+          useValue: listaEsperaRepositoryMock,
         },
       ],
     }).compile();
@@ -291,5 +304,142 @@ describe('TurnosService', () => {
   expect(transactionRepositoryMock.create).not.toHaveBeenCalled();
   expect(transactionRepositoryMock.save).not.toHaveBeenCalled();
   });
+
+  it('debería obtener la lista de espera en orden FIFO', async () => {
+  const lista = [
+    {
+      id: 1,
+      agendaId: 4,
+      pacienteId: 5,
+      horaInicio: '09:00:00',
+      horaFin: '09:30:00',
+      estado: 'ESPERANDO',
+    },
+    {
+      id: 2,
+      agendaId: 4,
+      pacienteId: 6,
+      horaInicio: '09:00:00',
+      horaFin: '09:30:00',
+      estado: 'ESPERANDO',
+    },
+  ];
+
+  listaEsperaRepositoryMock.find.mockResolvedValue(lista);
+
+  const resultado = await service.obtenerListaEspera(
+    4,
+    '09:00:00',
+  );
+
+  expect(listaEsperaRepositoryMock.find).toHaveBeenCalledWith({
+    where: {
+      agendaId: 4,
+      horaInicio: '09:00:00',
+      estado: 'ESPERANDO',
+    },
+    order: {
+      creadoEn: 'ASC',
+      id: 'ASC',
+    },
+  });
+
+  expect(resultado).toEqual(lista);
+});
+
+it('debería promover al primer paciente de la lista al cancelar un turno', async () => {
+  const turno = {
+    id: 13,
+    agendaId: 4,
+    pacienteId: 1,
+    horaInicio: '09:00:00',
+    horaFin: '09:30:00',
+    estado: 'Programado',
+    version: 1,
+  };
+
+  const primeroEnEspera = {
+    id: 20,
+    agendaId: 4,
+    pacienteId: 5,
+    horaInicio: '09:00:00',
+    horaFin: '09:30:00',
+    estado: 'ESPERANDO',
+  };
+
+  const turnosTransactionRepositoryMock = {
+    findOneBy: jest.fn().mockResolvedValue(turno),
+    save: jest.fn(),
+  };
+
+  const listaTransactionRepositoryMock = {
+    findOne: jest.fn().mockResolvedValue(primeroEnEspera),
+    save: jest.fn(),
+  };
+
+  const managerMock = {
+    getRepository: jest.fn((entity) => {
+      if (entity === Turno) {
+        return turnosTransactionRepositoryMock;
+      }
+
+      if (entity === ListaEspera) {
+        return listaTransactionRepositoryMock;
+      }
+    }),
+  };
+
+  repositoryMock.manager.transaction.mockImplementation(
+    async (callback) => callback(managerMock),
+  );
+
+  listaTransactionRepositoryMock.save.mockResolvedValue({
+    ...primeroEnEspera,
+    estado: 'PROMOVIDO',
+  });
+
+  turnosTransactionRepositoryMock.save.mockResolvedValue({
+    ...turno,
+    pacienteId: 5,
+    estado: 'Programado',
+    version: 2,
+  });
+
+  const resultado = await service.cancelar(13);
+
+  expect(turnosTransactionRepositoryMock.findOneBy)
+    .toHaveBeenCalledWith({
+      id: 13,
+    });
+
+  expect(listaTransactionRepositoryMock.findOne)
+    .toHaveBeenCalled();
+
+  expect(listaTransactionRepositoryMock.save)
+    .toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 20,
+        estado: 'PROMOVIDO',
+      }),
+    );
+
+  expect(turnosTransactionRepositoryMock.save)
+    .toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 13,
+        pacienteId: 5,
+        estado: 'Programado',
+        version: 2,
+      }),
+    );
+
+  expect(resultado).toEqual(
+    expect.objectContaining({
+      pacienteId: 5,
+      estado: 'Programado',
+      version: 2,
+    }),
+  );
+});
 
 });

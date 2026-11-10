@@ -49,4 +49,16 @@ export class TurnosController {
   cancelar(id) {
     return this.turnosService.cancelar(id);
   }
+
+  @Post('lista-espera')
+  @Bind(Body())
+  agregarAListaEspera(datos) {
+    return this.turnosService.agregarAListaEspera(datos);
+  }
+
+  @Get('lista-espera/:agendaId/:horaInicio')
+  @Bind(Param('agendaId'), Param('horaInicio'))
+  obtenerListaEspera(agendaId, horaInicio) {
+    return this.turnosService.obtenerListaEspera(agendaId, horaInicio);
+  }
 }
