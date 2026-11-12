@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { PacientesModule } from './pacientes/pacientes.module';
 import { AdmisionModule } from './admision/admision.module';
 import { AtencionModule } from './atencion/atencion.module';
+import { RecursosModule } from './recursos/recursos.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AtencionModule } from './atencion/atencion.module';
     PacientesModule,
     AdmisionModule,
     AtencionModule,
+    RecursosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

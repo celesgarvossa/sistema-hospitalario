@@ -1,27 +1,59 @@
 import { Test } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { BadRequestException } from '@nestjs/common';
 
 import { MedicacionService } from './medicacion.service';
 import { AdministracionMedicacion } from './administracion-medicacion.entity';
+import { Medicamento } from '../../recursos/inventario/medicamento.entity';
 
 describe('MedicacionService', () => {
   let service;
-  let repositoryMock;
+
+  let administracionRepositoryMock;
+  let medicamentosRepositoryMock;
+  let administracionesTransactionRepositoryMock;
+  let managerMock;
 
   beforeEach(async () => {
-    repositoryMock = {
-      find: jest.fn(),
+    medicamentosRepositoryMock = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+    };
+
+    administracionesTransactionRepositoryMock = {
       create: jest.fn(),
       save: jest.fn(),
+    };
+
+    managerMock = {
+      getRepository: jest.fn((entidad) => {
+        if (entidad === Medicamento) {
+          return medicamentosRepositoryMock;
+        }
+
+        if (entidad === AdministracionMedicacion) {
+          return administracionesTransactionRepositoryMock;
+        }
+      }),
+    };
+
+    administracionRepositoryMock = {
+      find: jest.fn(),
+      manager: {
+        transaction: jest.fn(async (callback) => {
+          return await callback(managerMock);
+        }),
+      },
     };
 
     const module = await Test.createTestingModule({
       providers: [
         MedicacionService,
         {
-          provide: getRepositoryToken(AdministracionMedicacion),
-          useValue: repositoryMock,
+          provide: getRepositoryToken(
+            AdministracionMedicacion,
+          ),
+          useValue: administracionRepositoryMock,
         },
       ],
     }).compile();
@@ -29,97 +61,159 @@ describe('MedicacionService', () => {
     service = module.get(MedicacionService);
   });
 
-  it('debería estar definido', () => {
+  it('debe estar definido', () => {
     expect(service).toBeDefined();
   });
 
-  it('debería obtener todas las administraciones', async () => {
+  it('debe obtener todas las administraciones', async () => {
     const registros = [
       {
         id: 1,
         pacienteId: 1,
         medicamentoId: 1,
-        enfermeroId: 1,
-        dentroVentana: true,
       },
     ];
 
-    repositoryMock.find.mockResolvedValue(registros);
+    administracionRepositoryMock.find.mockResolvedValue(
+      registros,
+    );
 
-    const resultado = await service.obtenerTodas();
+    const resultado =
+      await service.obtenerTodas();
 
-    expect(repositoryMock.find).toHaveBeenCalled();
     expect(resultado).toEqual(registros);
   });
 
-  it('debería marcar dentroVentana true con 20 minutos de diferencia', async () => {
-    const registro = {
+  it('debe administrar medicacion dentro de la ventana y descontar stock', async () => {
+    const medicamento = {
       id: 1,
-      pacienteId: 1,
-      medicamentoId: 1,
-      enfermeroId: 1,
-      cantidad: 1,
-      dentroVentana: true,
+      nombre: 'Paracetamol 500 mg',
+      stock: 20,
+      activo: true,
     };
 
-    repositoryMock.create.mockReturnValue(registro);
-    repositoryMock.save.mockResolvedValue(registro);
+    medicamentosRepositoryMock.findOne.mockResolvedValue(
+      medicamento,
+    );
 
-    const resultado = await service.crear({
-      pacienteId: 1,
-      medicamentoId: 1,
-      enfermeroId: 1,
-      cantidad: 1,
-      horarioProgramado: '2026-11-10T10:00:00',
-      horarioAdministracion: '2026-11-10T10:20:00',
-    });
+    medicamentosRepositoryMock.save.mockImplementation(
+      async (dato) => dato,
+    );
 
-    expect(repositoryMock.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        pacienteId: 1,
-        medicamentoId: 1,
-        enfermeroId: 1,
-        cantidad: 1,
-        dentroVentana: true,
+    administracionesTransactionRepositoryMock.create.mockImplementation(
+      (dato) => dato,
+    );
+
+    administracionesTransactionRepositoryMock.save.mockImplementation(
+      async (dato) => ({
+        id: 1,
+        ...dato,
       }),
     );
 
-    expect(resultado.dentroVentana).toBe(true);
-  });
-
-  it('debería marcar dentroVentana false con 45 minutos de diferencia', async () => {
-    const registro = {
-      id: 2,
+    const resultado = await service.crear({
       pacienteId: 1,
       medicamentoId: 1,
       enfermeroId: 1,
-      cantidad: 1,
-      dentroVentana: false,
+      cantidad: 2,
+      horarioProgramado:
+        '2026-11-11T10:00:00.000Z',
+      horarioAdministracion:
+        '2026-11-11T10:20:00.000Z',
+    });
+
+    expect(resultado.dentroVentana).toBe(true);
+
+    expect(medicamento.stock).toBe(18);
+
+    expect(
+      medicamentosRepositoryMock.save,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stock: 18,
+      }),
+    );
+  });
+
+  it('debe marcar fuera de ventana cuando pasan mas de 30 minutos', async () => {
+    const medicamento = {
+      id: 1,
+      nombre: 'Paracetamol 500 mg',
+      stock: 20,
+      activo: true,
     };
 
-    repositoryMock.create.mockReturnValue(registro);
-    repositoryMock.save.mockResolvedValue(registro);
+    medicamentosRepositoryMock.findOne.mockResolvedValue(
+      medicamento,
+    );
+
+    medicamentosRepositoryMock.save.mockImplementation(
+      async (dato) => dato,
+    );
+
+    administracionesTransactionRepositoryMock.create.mockImplementation(
+      (dato) => dato,
+    );
+
+    administracionesTransactionRepositoryMock.save.mockImplementation(
+      async (dato) => dato,
+    );
 
     const resultado = await service.crear({
       pacienteId: 1,
       medicamentoId: 1,
       enfermeroId: 1,
       cantidad: 1,
-      horarioProgramado: '2026-11-10T10:00:00',
-      horarioAdministracion: '2026-11-10T10:45:00',
+      horarioProgramado:
+        '2026-11-11T10:00:00.000Z',
+      horarioAdministracion:
+        '2026-11-11T10:45:00.000Z',
     });
 
     expect(resultado.dentroVentana).toBe(false);
+
+    expect(medicamento.stock).toBe(19);
   });
 
-  it('debería rechazar datos obligatorios faltantes', async () => {
+  it('debe rechazar la administracion si no hay stock suficiente', async () => {
+    medicamentosRepositoryMock.findOne.mockResolvedValue({
+      id: 1,
+      nombre: 'Paracetamol 500 mg',
+      stock: 1,
+      activo: true,
+    });
+
+    await expect(
+      service.crear({
+        pacienteId: 1,
+        medicamentoId: 1,
+        enfermeroId: 1,
+        cantidad: 2,
+        horarioProgramado:
+          '2026-11-11T10:00:00.000Z',
+        horarioAdministracion:
+          '2026-11-11T10:10:00.000Z',
+      }),
+    ).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+
+    expect(
+      medicamentosRepositoryMock.save,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      administracionesTransactionRepositoryMock.save,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('debe rechazar datos obligatorios faltantes', async () => {
     await expect(
       service.crear({
         pacienteId: 1,
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-
-    expect(repositoryMock.create).not.toHaveBeenCalled();
-    expect(repositoryMock.save).not.toHaveBeenCalled();
+    ).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });
