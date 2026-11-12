@@ -135,4 +135,56 @@ async finalizarLimpieza(id) {
 
   return await this.camasRepository.save(cama);
 }
+
+async bloquear(id) {
+  const cama = await this.camasRepository.findOneBy({
+    id: Number(id),
+  });
+
+  if (!cama) {
+    throw new NotFoundException(
+      'Cama no encontrada',
+    );
+  }
+
+  const estadoActual =
+    EstadoCamaFactory.crear(cama.estado);
+
+  try {
+    cama.estado = estadoActual.bloquear();
+  } catch (error) {
+    throw new BadRequestException(
+      error.message,
+    );
+  }
+
+  cama.pacienteId = null;
+
+  return await this.camasRepository.save(cama);
+}
+
+async desbloquear(id) {
+  const cama = await this.camasRepository.findOneBy({
+    id: Number(id),
+  });
+
+  if (!cama) {
+    throw new NotFoundException(
+      'Cama no encontrada',
+    );
+  }
+
+  const estadoActual =
+    EstadoCamaFactory.crear(cama.estado);
+
+  try {
+    cama.estado = estadoActual.desbloquear();
+  } catch (error) {
+    throw new BadRequestException(
+      error.message,
+    );
+  }
+
+  return await this.camasRepository.save(cama);
+}
 }

@@ -157,4 +157,52 @@ describe('CamasService', () => {
     expect(resultado.estado).toBe('Libre');
     expect(resultado.pacienteId).toBeNull();
   });
+
+  it('debe bloquear una cama libre', async () => {
+  const cama = {
+    id: 1,
+    numero: 'CAMA-101',
+    sector: 'Internación',
+    estado: 'Libre',
+    pacienteId: null,
+  };
+
+  camasRepositoryMock.findOneBy.mockResolvedValue(
+    cama,
+  );
+
+  camasRepositoryMock.save.mockImplementation(
+    async (dato) => dato,
+  );
+
+  const resultado =
+    await service.bloquear(1);
+
+  expect(resultado.estado).toBe('Bloqueada');
+  expect(resultado.pacienteId).toBeNull();
+});
+
+it('debe desbloquear una cama bloqueada', async () => {
+  const cama = {
+    id: 1,
+    numero: 'CAMA-101',
+    sector: 'Internación',
+    estado: 'Bloqueada',
+    pacienteId: null,
+  };
+
+  camasRepositoryMock.findOneBy.mockResolvedValue(
+    cama,
+  );
+
+  camasRepositoryMock.save.mockImplementation(
+    async (dato) => dato,
+  );
+
+  const resultado =
+    await service.desbloquear(1);
+
+  expect(resultado.estado).toBe('Libre');
+  expect(resultado.pacienteId).toBeNull();
+});
 });

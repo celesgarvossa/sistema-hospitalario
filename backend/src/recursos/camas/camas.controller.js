@@ -50,4 +50,15 @@ export class CamasController {
     return this.camasService.finalizarLimpieza(id);
   }
   
+  @Patch(':id/bloquear')
+  @Bind(Param('id'))
+  bloquear(id) {
+    return this.camasService.bloquear(id);
+  }
+
+  @Patch(':id/desbloquear')
+  @Bind(Param('id'))
+  desbloquear(id) {
+    return this.camasService.desbloquear(id);
+  }
 }

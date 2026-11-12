@@ -14,6 +14,8 @@ describe('CamasController', () => {
       asignar: jest.fn(),
       darAlta: jest.fn(),
       finalizarLimpieza: jest.fn(),
+      bloquear: jest.fn(),
+      desbloquear: jest.fn(),
     };
 
     const module = await Test.createTestingModule({
@@ -122,4 +124,44 @@ describe('CamasController', () => {
       serviceMock.finalizarLimpieza,
     ).toHaveBeenCalledWith(1);
   });
+
+  it('debe delegar el bloqueo de una cama', () => {
+  const cama = {
+    id: 1,
+    numero: 'CAMA-101',
+    estado: 'Bloqueada',
+    pacienteId: null,
+  };
+
+  serviceMock.bloquear.mockReturnValue(cama);
+
+  const resultado =
+    controller.bloquear(1);
+
+  expect(resultado).toEqual(cama);
+
+  expect(
+    serviceMock.bloquear,
+  ).toHaveBeenCalledWith(1);
+});
+
+it('debe delegar el desbloqueo de una cama', () => {
+  const cama = {
+    id: 1,
+    numero: 'CAMA-101',
+    estado: 'Libre',
+    pacienteId: null,
+  };
+
+  serviceMock.desbloquear.mockReturnValue(cama);
+
+  const resultado =
+    controller.desbloquear(1);
+
+  expect(resultado).toEqual(cama);
+
+  expect(
+    serviceMock.desbloquear,
+  ).toHaveBeenCalledWith(1);
+});
 });
