@@ -6,15 +6,23 @@ import {
 } from '@nestjs/common';
 
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { AdministracionMedicacion } from './administracion-medicacion.entity';
 import { Medicamento } from '../../recursos/inventario/medicamento.entity';
+import { MedicacionAdministradaEvent } from './eventos/medicacion-administrada.event';
 
 @Injectable()
-@Dependencies(getRepositoryToken(AdministracionMedicacion))
+@Dependencies(
+  getRepositoryToken(AdministracionMedicacion),
+  EventEmitter2,
+)
 export class MedicacionService {
-  constructor(administracionRepository) {
-    this.administracionRepository = administracionRepository;
+  constructor(administracionRepository, eventEmitter) {
+    this.administracionRepository =
+      administracionRepository;
+
+    this.eventEmitter = eventEmitter;
   }
 
   obtenerTodas() {
@@ -28,10 +36,12 @@ export class MedicacionService {
       !datos.enfermeroId ||
       !datos.cantidad ||
       !datos.horarioProgramado ||
-      !datos.horarioAdministracion
+      !datos.horarioAdministracion ||
+      !datos.tipoCobertura ||
+      datos.montoBase === undefined
     ) {
       throw new BadRequestException(
-        'pacienteId, medicamentoId, enfermeroId, cantidad, horarioProgramado y horarioAdministracion son obligatorios',
+        'pacienteId, medicamentoId, enfermeroId, cantidad, horarioProgramado, horarioAdministracion, tipoCobertura y montoBase son obligatorios',
       );
     }
 
@@ -43,8 +53,13 @@ export class MedicacionService {
       );
     }
 
-    const programado = new Date(datos.horarioProgramado);
-    const administrado = new Date(datos.horarioAdministracion);
+    const programado = new Date(
+      datos.horarioProgramado,
+    );
+
+    const administrado = new Date(
+      datos.horarioAdministracion,
+    );
 
     if (
       Number.isNaN(programado.getTime()) ||
@@ -56,7 +71,8 @@ export class MedicacionService {
     }
 
     const diferenciaMs = Math.abs(
-      administrado.getTime() - programado.getTime(),
+      administrado.getTime() -
+        programado.getTime(),
     );
 
     const diferenciaMinutos =
@@ -65,70 +81,93 @@ export class MedicacionService {
     const dentroVentana =
       diferenciaMinutos <= 30;
 
-    return await this.administracionRepository.manager.transaction(
-      async (manager) => {
-        const medicamentosRepository =
-          manager.getRepository(Medicamento);
+    const registroGuardado =
+      await this.administracionRepository.manager.transaction(
+        async (manager) => {
+          const medicamentosRepository =
+            manager.getRepository(Medicamento);
 
-        const administracionesRepository =
-          manager.getRepository(
-            AdministracionMedicacion,
+          const administracionesRepository =
+            manager.getRepository(
+              AdministracionMedicacion,
+            );
+
+          const medicamento =
+            await medicamentosRepository.findOne({
+              where: {
+                id: Number(
+                  datos.medicamentoId,
+                ),
+              },
+              lock: {
+                mode: 'pessimistic_write',
+              },
+            });
+
+          if (!medicamento) {
+            throw new NotFoundException(
+              'Medicamento no encontrado',
+            );
+          }
+
+          if (!medicamento.activo) {
+            throw new BadRequestException(
+              'El medicamento no está activo',
+            );
+          }
+
+          if (medicamento.stock < cantidad) {
+            throw new BadRequestException(
+              'Stock insuficiente',
+            );
+          }
+
+          medicamento.stock =
+            medicamento.stock - cantidad;
+
+          await medicamentosRepository.save(
+            medicamento,
           );
 
-        const medicamento =
-          await medicamentosRepository.findOne({
-            where: {
-              id: Number(datos.medicamentoId),
-            },
-            lock: {
-              mode: 'pessimistic_write',
-            },
-          });
+          const registro =
+            administracionesRepository.create({
+              pacienteId: Number(
+                datos.pacienteId,
+              ),
+              medicamentoId: Number(
+                datos.medicamentoId,
+              ),
+              enfermeroId: Number(
+                datos.enfermeroId,
+              ),
+              cantidad,
+              horarioProgramado:
+                programado,
+              horarioAdministracion:
+                administrado,
+              dentroVentana,
+            });
 
-        if (!medicamento) {
-          throw new NotFoundException(
-            'Medicamento no encontrado',
+          return await administracionesRepository.save(
+            registro,
           );
-        }
+        },
+      );
 
-        if (!medicamento.activo) {
-          throw new BadRequestException(
-            'El medicamento no está activo',
-          );
-        }
-
-        if (medicamento.stock < cantidad) {
-          throw new BadRequestException(
-            'Stock insuficiente',
-          );
-        }
-
-        medicamento.stock =
-          medicamento.stock - cantidad;
-
-        await medicamentosRepository.save(
-          medicamento,
-        );
-
-        const registro =
-          administracionesRepository.create({
-            pacienteId: Number(datos.pacienteId),
-            medicamentoId: Number(
-              datos.medicamentoId,
-            ),
-            enfermeroId: Number(
-              datos.enfermeroId,
-            ),
-            cantidad,
-            horarioProgramado: programado,
-            horarioAdministracion: administrado,
-            dentroVentana,
-          });
-
-        return await administracionesRepository.save(
-          registro,
-        );
-      },
+    this.eventEmitter.emit(
+      'medicacion.administrada',
+      new MedicacionAdministradaEvent({
+        administracionId:
+          registroGuardado.id,
+        pacienteId:
+          registroGuardado.pacienteId,
+        tipoCobertura:
+          datos.tipoCobertura,
+        montoBase:
+          Number(datos.montoBase),
+      }),
     );
+
+    return registroGuardado;
   }
 }

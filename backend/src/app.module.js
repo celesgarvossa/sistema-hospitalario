@@ -7,6 +7,8 @@ import { PacientesModule } from './pacientes/pacientes.module';
 import { AdmisionModule } from './admision/admision.module';
 import { AtencionModule } from './atencion/atencion.module';
 import { RecursosModule } from './recursos/recursos.module';
+import { FacturacionModule } from './facturacion/facturacion.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { RecursosModule } from './recursos/recursos.module';
     AdmisionModule,
     AtencionModule,
     RecursosModule,
+    FacturacionModule,
+    EventEmitterModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],

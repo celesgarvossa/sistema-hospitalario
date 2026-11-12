@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { MedicacionService } from './medicacion.service';
 import { AdministracionMedicacion } from './administracion-medicacion.entity';
@@ -13,6 +14,7 @@ describe('MedicacionService', () => {
   let medicamentosRepositoryMock;
   let administracionesTransactionRepositoryMock;
   let managerMock;
+  let eventEmitterMock;
 
   beforeEach(async () => {
     medicamentosRepositoryMock = {
@@ -46,6 +48,10 @@ describe('MedicacionService', () => {
       },
     };
 
+    eventEmitterMock = {
+      emit: jest.fn(),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         MedicacionService,
@@ -54,6 +60,10 @@ describe('MedicacionService', () => {
             AdministracionMedicacion,
           ),
           useValue: administracionRepositoryMock,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: eventEmitterMock,
         },
       ],
     }).compile();
@@ -84,7 +94,7 @@ describe('MedicacionService', () => {
     expect(resultado).toEqual(registros);
   });
 
-  it('debe administrar medicacion dentro de la ventana y descontar stock', async () => {
+  it('debe administrar medicacion, descontar stock y emitir evento', async () => {
     const medicamento = {
       id: 1,
       nombre: 'Paracetamol 500 mg',
@@ -106,7 +116,7 @@ describe('MedicacionService', () => {
 
     administracionesTransactionRepositoryMock.save.mockImplementation(
       async (dato) => ({
-        id: 1,
+        id: 10,
         ...dato,
       }),
     );
@@ -117,20 +127,25 @@ describe('MedicacionService', () => {
       enfermeroId: 1,
       cantidad: 2,
       horarioProgramado:
-        '2026-11-11T10:00:00.000Z',
+        '2026-11-12T10:00:00.000Z',
       horarioAdministracion:
-        '2026-11-11T10:20:00.000Z',
+        '2026-11-12T10:20:00.000Z',
+      tipoCobertura: 'PREPAGA',
+      montoBase: 5000,
     });
 
     expect(resultado.dentroVentana).toBe(true);
-
     expect(medicamento.stock).toBe(18);
 
     expect(
-      medicamentosRepositoryMock.save,
+      eventEmitterMock.emit,
     ).toHaveBeenCalledWith(
+      'medicacion.administrada',
       expect.objectContaining({
-        stock: 18,
+        administracionId: 10,
+        pacienteId: 1,
+        tipoCobertura: 'PREPAGA',
+        montoBase: 5000,
       }),
     );
   });
@@ -156,7 +171,10 @@ describe('MedicacionService', () => {
     );
 
     administracionesTransactionRepositoryMock.save.mockImplementation(
-      async (dato) => dato,
+      async (dato) => ({
+        id: 11,
+        ...dato,
+      }),
     );
 
     const resultado = await service.crear({
@@ -165,13 +183,14 @@ describe('MedicacionService', () => {
       enfermeroId: 1,
       cantidad: 1,
       horarioProgramado:
-        '2026-11-11T10:00:00.000Z',
+        '2026-11-12T10:00:00.000Z',
       horarioAdministracion:
-        '2026-11-11T10:45:00.000Z',
+        '2026-11-12T10:45:00.000Z',
+      tipoCobertura: 'PARTICULAR',
+      montoBase: 5000,
     });
 
     expect(resultado.dentroVentana).toBe(false);
-
     expect(medicamento.stock).toBe(19);
   });
 
@@ -190,9 +209,11 @@ describe('MedicacionService', () => {
         enfermeroId: 1,
         cantidad: 2,
         horarioProgramado:
-          '2026-11-11T10:00:00.000Z',
+          '2026-11-12T10:00:00.000Z',
         horarioAdministracion:
-          '2026-11-11T10:10:00.000Z',
+          '2026-11-12T10:10:00.000Z',
+        tipoCobertura: 'PREPAGA',
+        montoBase: 5000,
       }),
     ).rejects.toBeInstanceOf(
       BadRequestException,
@@ -204,6 +225,10 @@ describe('MedicacionService', () => {
 
     expect(
       administracionesTransactionRepositoryMock.save,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      eventEmitterMock.emit,
     ).not.toHaveBeenCalled();
   });
 
