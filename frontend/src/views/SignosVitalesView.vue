@@ -213,11 +213,12 @@ onMounted(() => {
             </td>
 
             <td>
-              {{
-                registro.alertaTemperatura
-                  ? 'ALERTA'
-                  : 'Normal'
-              }}
+              <span
+                class="estado-badge"
+                :class="registro.alertaTemperatura ? 'estado-alerta' : 'estado-normal'"
+              >
+                {{ registro.alertaTemperatura ? 'ALERTA' : 'Normal' }}
+              </span>
             </td>
           </tr>
         </tbody>

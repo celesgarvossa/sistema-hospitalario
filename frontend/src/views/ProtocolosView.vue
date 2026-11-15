@@ -69,7 +69,10 @@ async function cargarRespiratorio() {
       {{ error }}
     </p>
 
-    <section v-if="protocolo">
+    <section
+      v-if="protocolo"
+      class="protocolo-card"
+    >
       <h3>{{ protocolo.nombre }}</h3>
 
       <ol>

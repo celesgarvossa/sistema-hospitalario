@@ -176,7 +176,19 @@ onMounted(() => {
             <td>{{ cama.id }}</td>
             <td>{{ cama.numero }}</td>
             <td>{{ cama.sector }}</td>
-            <td>{{ cama.estado }}</td>
+            <td>
+              <span
+                class="estado-badge"
+                :class="{
+                  'estado-libre': cama.estado === 'Libre',
+                  'estado-ocupada': cama.estado === 'Ocupada',
+                  'estado-limpieza': cama.estado === 'En limpieza',
+                  'estado-bloqueada': cama.estado === 'Bloqueada',
+                }"
+              >
+                {{ cama.estado }}
+              </span>
+            </td>
 
             <td>
               {{ cama.pacienteId || '-' }}

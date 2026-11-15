@@ -163,7 +163,18 @@ onMounted(() => {
           >
             <td>{{ cargo.id }}</td>
             <td>{{ cargo.pacienteId }}</td>
-            <td>{{ cargo.tipoCobertura }}</td>
+            <td>
+              <span
+                class="estado-badge"
+                :class="{
+                  'cobertura-publica': cargo.tipoCobertura === 'PUBLICO',
+                  'cobertura-prepaga': cargo.tipoCobertura === 'PREPAGA',
+                  'cobertura-particular': cargo.tipoCobertura === 'PARTICULAR',
+                }"
+              >
+                {{ cargo.tipoCobertura }}
+              </span>
+            </td>
             <td>{{ cargo.concepto }}</td>
             <td>{{ cargo.montoBase }}</td>
             <td>{{ cargo.montoFinal }}</td>

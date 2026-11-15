@@ -448,7 +448,19 @@ onMounted(() => {
               {{ turno.horaFin }}
             </td>
 
-            <td>{{ turno.estado }}</td>
+            <td>
+              <span class="estado-badge"
+                :class="{
+                  'estado-programado': turno.estado === 'Programado',
+                 'estado-confirmado': turno.estado === 'Confirmado',
+                  'estado-espera': turno.estado === 'En Sala de Espera',
+                  'estado-atendido': turno.estado === 'Atendido',
+                  'estado-cancelado': turno.estado === 'Cancelado',
+                }"
+              >
+                {{ turno.estado }}
+              </span>
+            </td>
             <td>{{ turno.tipo }}</td>
 
             <td>

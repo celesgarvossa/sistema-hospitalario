@@ -208,7 +208,12 @@ onMounted(() => {
             </td>
             <td>{{ medicamento.stock }}</td>
             <td>
-              {{ medicamento.activo ? 'Sí' : 'No' }}
+              <span
+                class="estado-badge"
+                :class="medicamento.activo ? 'estado-normal' : 'estado-bloqueada'"
+              >
+                {{ medicamento.activo ? 'Sí' : 'No' }}
+              </span>
             </td>
           </tr>
         </tbody>
@@ -354,11 +359,12 @@ onMounted(() => {
             <td>{{ administracion.enfermeroId }}</td>
             <td>{{ administracion.cantidad }}</td>
             <td>
-              {{
-                administracion.dentroVentana
-                  ? 'Sí'
-                  : 'No'
-              }}
+              <span
+                class="estado-badge"
+                :class="administracion.dentroVentana ? 'estado-normal' : 'estado-alerta'"
+              >
+                {{ administracion.dentroVentana ? 'Sí' : 'No' }}
+              </span>
             </td>
           </tr>
         </tbody>

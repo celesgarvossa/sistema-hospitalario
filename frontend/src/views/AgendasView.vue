@@ -129,7 +129,14 @@ onMounted(() => {
             <td>{{ agenda.id }}</td>
             <td>{{ agenda.medicoId }}</td>
             <td>{{ agenda.fecha }}</td>
-            <td>{{ agenda.activa ? 'Sí' : 'No' }}</td>
+            <td>
+              <span
+                class="estado-badge"
+                :class="agenda.activa ? 'estado-normal' : 'estado-bloqueada'"
+              >
+                {{ agenda.activa ? 'Sí' : 'No' }}
+              </span>
+            </td>
           </tr>
         </tbody>
       </table>

@@ -131,7 +131,18 @@ onMounted(() => {
             <td>{{ index + 1 }}</td>
             <td>{{ registro.id }}</td>
             <td>{{ registro.pacienteId }}</td>
-            <td>{{ registro.codigo }}</td>
+            <td>
+              <span
+                class="estado-badge"
+                :class="{
+                  'triage-rojo': registro.codigo === 'ROJO',
+                  'triage-amarillo': registro.codigo === 'AMARILLO',
+                  'triage-verde': registro.codigo === 'VERDE',
+                }"
+              >
+                {{ registro.codigo }}
+              </span>
+            </td>
             <td>{{ registro.prioridad }}</td>
             <td>{{ registro.estado }}</td>
           </tr>
