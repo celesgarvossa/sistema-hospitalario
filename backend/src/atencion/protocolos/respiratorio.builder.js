@@ -6,9 +6,11 @@ export class RespiratorioBuilder extends ProtocoloBuilder {
 
     this
       .establecerNombre('Protocolo Respiratorio')
-      .agregarPaso('Controlar saturación de oxígeno')
-      .agregarPaso('Evaluar necesidad de oxigenoterapia')
-      .agregarPaso('Realizar nebulización si corresponde')
-      .agregarPaso('Controlar evolución del paciente');
+      .agregarPaso(
+        'Monitoreo de saturación de oxígeno continuo',
+      )
+      .agregarPaso(
+        'Indicación de aislamiento de contacto y gotas',
+      );
   }
 }

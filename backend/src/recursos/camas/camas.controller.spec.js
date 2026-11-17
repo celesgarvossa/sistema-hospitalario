@@ -70,6 +70,7 @@ describe('CamasController', () => {
       1,
       {
         pacienteId: 1,
+        tipoIngreso: 'PREQUIRURGICO',
       },
     );
 
@@ -80,6 +81,7 @@ describe('CamasController', () => {
     ).toHaveBeenCalledWith(
       1,
       1,
+      'PREQUIRURGICO',
     );
   });
 

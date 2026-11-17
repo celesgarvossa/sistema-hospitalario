@@ -28,10 +28,9 @@ describe('ProtocolosService', () => {
     );
 
     expect(protocolo.pasos).toEqual([
-      'Verificar ayuno',
-      'Controlar signos vitales',
-      'Preparar al paciente',
-      'Verificar documentación',
+      'Verificar ayuno de 8 horas',
+      'Colocar vía intravenosa periférica',
+      'Realizar control de signos vitales cada 2 horas',
     ]);
   });
 
@@ -44,10 +43,8 @@ describe('ProtocolosService', () => {
     );
 
     expect(protocolo.pasos).toEqual([
-      'Controlar saturación de oxígeno',
-      'Evaluar necesidad de oxigenoterapia',
-      'Realizar nebulización si corresponde',
-      'Controlar evolución del paciente',
+      'Monitoreo de saturación de oxígeno continuo',
+      'Indicación de aislamiento de contacto y gotas',
     ]);
   });
 });

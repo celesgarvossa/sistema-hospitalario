@@ -6,9 +6,10 @@ export class PreoperatorioBuilder extends ProtocoloBuilder {
 
     this
       .establecerNombre('Protocolo Preoperatorio')
-      .agregarPaso('Verificar ayuno')
-      .agregarPaso('Controlar signos vitales')
-      .agregarPaso('Preparar al paciente')
-      .agregarPaso('Verificar documentación');
+      .agregarPaso('Verificar ayuno de 8 horas')
+      .agregarPaso('Colocar vía intravenosa periférica')
+      .agregarPaso(
+        'Realizar control de signos vitales cada 2 horas',
+      );
   }
 }

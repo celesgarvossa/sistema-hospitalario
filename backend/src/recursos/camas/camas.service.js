@@ -10,11 +10,15 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Cama } from './cama.entity';
 import { EstadoCamaFactory } from './estados/estado-cama.factory';
 
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PacienteIngresadoEvent } from './eventos/paciente-ingresado.event';
+
 @Injectable()
-@Dependencies(getRepositoryToken(Cama))
+@Dependencies(getRepositoryToken(Cama), EventEmitter2)
 export class CamasService {
-  constructor(camasRepository) {
+  constructor(camasRepository, eventEmitter) {
     this.camasRepository = camasRepository;
+    this.eventEmitter = eventEmitter
   }
 
   obtenerTodas() {
@@ -38,14 +42,28 @@ export class CamasService {
     return await this.camasRepository.save(cama);
   }
 
-  async asignar(id, pacienteId) {
+  async asignar(id, pacienteId, tipoIngreso) {
     if (!pacienteId) {
       throw new BadRequestException(
         'pacienteId es obligatorio',
       );
     }
+    if (!tipoIngreso){
+      throw new BadRequestException(
+        'tipoIngreso es obligatorio',
+      );
+    }
+    if(
+      tipoIngreso !== 'PREQUIRURGICO' &&
+      tipoIngreso !== 'RESPIRATORIO'
+    ){
+      throw new BadRequestException(
+        'tipoIngreso debe ser PREQUIRURGICO o RESPIRATORIO',
+      );
+    }
 
-    return await this.camasRepository.manager.transaction(
+    const camaGuardada=
+     await this.camasRepository.manager.transaction(
       async (manager) => {
         const camasRepository =
           manager.getRepository(Cama);
@@ -81,6 +99,15 @@ export class CamasService {
         return await camasRepository.save(cama);
       },
     );
+    this.eventEmitter.emit(
+      'paciente.ingresado',
+      new PacienteIngresadoEvent({
+        camaId: camaGuardada.id,
+        pacienteId: camaGuardada.pacienteId,
+        tipoIngreso,
+      }),
+    );
+    return camaGuardada;
   }
   
   async darAlta(id) {

@@ -5,12 +5,15 @@ import { BadRequestException } from '@nestjs/common';
 import { CamasService } from './camas.service';
 import { Cama } from './cama.entity';
 
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 describe('CamasService', () => {
   let service;
 
   let camasRepositoryMock;
   let camasTransactionRepositoryMock;
   let managerMock;
+  let eventEmitterMock;
 
   beforeEach(async () => {
     camasTransactionRepositoryMock = {
@@ -35,13 +38,19 @@ describe('CamasService', () => {
         }),
       },
     };
-
+    eventEmitterMock={
+      emit: jest.fn(),
+    };
     const module = await Test.createTestingModule({
       providers: [
         CamasService,
         {
           provide: getRepositoryToken(Cama),
           useValue: camasRepositoryMock,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: eventEmitterMock,
         },
       ],
     }).compile();
@@ -70,7 +79,11 @@ describe('CamasService', () => {
       async (dato) => dato,
     );
 
-    const resultado = await service.asignar(1, 1);
+    const resultado = await service.asignar(
+      1,
+      1,
+    'PREQUIRURGICO',
+    );
 
     expect(resultado.estado).toBe('Ocupada');
     expect(resultado.pacienteId).toBe(1);
@@ -97,7 +110,12 @@ describe('CamasService', () => {
     });
 
     await expect(
-      service.asignar(1, 3),
+      service.asignar(
+        1, 
+        3,
+      'PREQUIRURGICO',
+    ),
+    
     ).rejects.toBeInstanceOf(
       BadRequestException,
     );

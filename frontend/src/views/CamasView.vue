@@ -21,6 +21,7 @@ const nuevaCama = ref({
 });
 
 const pacientePorCama = ref({});
+const tipoIngresoPorCama = ref({});
 
 async function cargarCamas() {
   cargando.value = true;
@@ -62,9 +63,11 @@ async function asignar(cama) {
     await asignarCama(
       cama.id,
       pacientePorCama.value[cama.id],
+      tipoIngresoPorCama.value[cama.id],
     );
 
     pacientePorCama.value[cama.id] = '';
+    tipoIngresoPorCama.value[cama.id] = '';
 
     await cargarCamas();
   } catch (err) {
@@ -201,6 +204,21 @@ onMounted(() => {
                   type="number"
                   placeholder="ID paciente"
                 />
+                <select
+                  v-model="tipoIngresoPorCama[cama.id]"
+                  required
+                >
+                  <option value="">
+                    Seleccionar ingreso
+                  </option>
+
+                  <option value="PREQUIRURGICO">
+                    Pre-quirúrgico
+                  </option>
+                  <option value="RESPIRATORIO">
+                    Infección respiratoria
+                  </option>
+                </select>
 
                 <button
                   type="button"

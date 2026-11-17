@@ -11,11 +11,12 @@ export function crearCama(datos) {
   });
 }
 
-export function asignarCama(id, pacienteId) {
+export function asignarCama(id, pacienteId, tipoIngreso) {
   return apiRequest(`/camas/${id}/asignar`, {
     method: 'PATCH',
     body: JSON.stringify({
       pacienteId,
+      tipoIngreso,
     }),
   });
 }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { ProtocolosService } from './protocolos.service';
 import { ProtocolosController } from './protocolos.controller';
+import { PacienteIngresadoListener } from './paciente-ingresado.listener';
 
 @Module({
   controllers: [
@@ -9,6 +10,7 @@ import { ProtocolosController } from './protocolos.controller';
   ],
   providers: [
     ProtocolosService,
+    PacienteIngresadoListener,
   ],
 })
 export class ProtocolosModule {}

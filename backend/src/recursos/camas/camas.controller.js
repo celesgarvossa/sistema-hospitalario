@@ -34,7 +34,8 @@ export class CamasController {
     asignar(id, datos) {
     return this.camasService.asignar(
         id, 
-        datos.pacienteId
+        datos.pacienteId,
+        datos.tipoIngreso,
     );
   }
 
