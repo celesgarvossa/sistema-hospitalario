@@ -99,15 +99,21 @@ export class CamasService {
         return await camasRepository.save(cama);
       },
     );
-    this.eventEmitter.emit(
-      'paciente.ingresado',
-      new PacienteIngresadoEvent({
-        camaId: camaGuardada.id,
-        pacienteId: camaGuardada.pacienteId,
-        tipoIngreso,
-      }),
-    );
-    return camaGuardada;
+    
+    const resultados =
+      await this.eventEmitter.emitAsync(
+        'paciente.ingresado',
+        new PacienteIngresadoEvent({
+          camaId: camaGuardada.id,
+          pacienteId: camaGuardada.pacienteId,
+          tipoIngreso,
+        }),
+      );
+      const protocolo = resultados[0] || null;
+    return {
+      cama : camaGuardada,
+      protocolo,
+    };
   }
   
   async darAlta(id) {

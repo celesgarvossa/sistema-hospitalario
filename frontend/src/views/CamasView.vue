@@ -23,6 +23,9 @@ const nuevaCama = ref({
 const pacientePorCama = ref({});
 const tipoIngresoPorCama = ref({});
 
+const protocolosPorCama = ref({});
+const protocoloVisible = ref(null);
+
 async function cargarCamas() {
   cargando.value = true;
   error.value = '';
@@ -60,14 +63,15 @@ async function asignar(cama) {
   error.value = '';
 
   try {
-    await asignarCama(
+    const resultado = await asignarCama(
       cama.id,
       pacientePorCama.value[cama.id],
       tipoIngresoPorCama.value[cama.id],
     );
-
-    pacientePorCama.value[cama.id] = '';
-    tipoIngresoPorCama.value[cama.id] = '';
+    if(resultado.protocolo){
+      protocolosPorCama.value[cama.id] =
+      resultado.protocolo;
+    }
 
     await cargarCamas();
   } catch (err) {
@@ -168,6 +172,7 @@ onMounted(() => {
             <th>Estado</th>
             <th>Paciente</th>
             <th>Acciones</th>
+            <th>Pasos</th>
           </tr>
         </thead>
 
@@ -259,9 +264,50 @@ onMounted(() => {
                 Desbloquear
               </button>
             </td>
+            <td>
+              <button
+                v-if="protocolosPorCama[cama.id]"
+                type="button"
+                @click="
+                 protocoloVisible =
+                  protocolosPorCama[cama.id]
+                "
+                title="=Ver pasos del protocolo"
+              >
+                🔍
+              </button>
+
+              <span v-else>
+                -
+              </span>
+            </td>
           </tr>
         </tbody>
       </table>
+      <section
+        v-if="protocoloVisible"
+        class="protocolo-card"
+      >
+        <h2>
+          {{ protocoloVisible.nombre }}
+        </h2>
+
+        <ol>
+          <li
+            v-for="(paso, index) in protocoloVisible.pasos"
+            :key="index"
+          >
+            {{ paso }}
+          </li>
+        </ol>
+
+        <button
+          type="button"
+          @click="protocoloVisible = null"
+        >
+          Cerrar
+        </button>
+      </section>
 
       <p v-else>
         No hay camas registradas.

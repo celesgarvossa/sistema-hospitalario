@@ -39,7 +39,16 @@ describe('CamasService', () => {
       },
     };
     eventEmitterMock={
-      emit: jest.fn(),
+      emitAsync: jest.fn().mockResolvedValue([
+        {
+          nombre: 'Protocolo Preoperatorio',
+          pasos:[
+            'Verificar ayuno de 8 horas',
+            'Colocar vía intravenosa periférica',
+            'Realizar control de signos vitales cada 2 horas',
+          ],
+        },
+      ]),
     };
     const module = await Test.createTestingModule({
       providers: [
@@ -82,11 +91,19 @@ describe('CamasService', () => {
     const resultado = await service.asignar(
       1,
       1,
-    'PREQUIRURGICO',
+      'PREQUIRURGICO',
     );
 
-    expect(resultado.estado).toBe('Ocupada');
-    expect(resultado.pacienteId).toBe(1);
+    expect(resultado.cama.estado).toBe('Ocupada');
+    expect(resultado.cama.pacienteId).toBe(1);
+    expect (resultado.protocolo).toEqual({
+      nombre: 'Protocolo Preoperatorio',
+      pasos:[
+        'Verificar ayuno de 8 horas',
+        'Colocar vía intravenosa periférica',
+        'Realizar control de signos vitales cada 2 horas',
+      ],
+    });
 
     expect(
       camasTransactionRepositoryMock.findOne,
@@ -113,7 +130,7 @@ describe('CamasService', () => {
       service.asignar(
         1, 
         3,
-      'PREQUIRURGICO',
+        'PREQUIRURGICO',
     ),
     
     ).rejects.toBeInstanceOf(
